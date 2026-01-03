@@ -8,6 +8,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+
+import com.example.datausagetracker.utils.NetworkHelper;
+import com.example.datausagetracker.worker.DataWorker;
+
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,16 +29,35 @@ public class MainActivity extends AppCompatActivity {
             android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
         }
-        TextView myText = findViewById(R.id.textView); // XML'deki ID neyse o
-        long bytes = getTotalDataUsage();
-        double megabytes = bytes / (1024.0 * 1024.0);
-        myText.setText(String.format("Mobil Veri: %.2f MB", megabytes));
+        TextView myText = findViewById(R.id.textView); // like XML's ID
+        long wifiBytes = NetworkHelper.getTotalWifiUsage(this);
+        long mobileBytes = NetworkHelper.getTotalMobileUsage(this);
+
+        double wifiMB = wifiBytes / (1024.0 * 1024.0);
+        double mobileMB = mobileBytes / (1024.0 * 1024.0);
+
+        myText.setText(String.format("WiFi: %.2f MB\nMobil: %.2f MB", wifiMB, mobileMB));
+
+        startBackgroundWork();
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
+
         });
+    }
+
+    private void startBackgroundWork() {
+        PeriodicWorkRequest trackingRequest =
+                new PeriodicWorkRequest.Builder(DataWorker.class, 15, TimeUnit.MINUTES)
+                        .build();
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "DataTrackingWork",
+                ExistingPeriodicWorkPolicy.KEEP,
+                trackingRequest
+        );
     }
 
     //check permissions
