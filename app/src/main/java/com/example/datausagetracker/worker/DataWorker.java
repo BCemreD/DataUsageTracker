@@ -27,7 +27,7 @@ public class DataWorker extends Worker {
         AppDatabase db = AppDatabase.getDatabase(context);
 
         long endTime = System.currentTimeMillis();
-        long startTime = endTime - (15*60*1000);
+        long startTime = endTime - (24 * 60 * 60 * 1000);
 
         try{
             //List all apps
@@ -56,7 +56,7 @@ public class DataWorker extends Worker {
                 );
 
                 //3. Only used apps will be kept in db
-                if (wifiUsage > 0 || mobileUsage < 0) {
+                if (wifiUsage > 0 || mobileUsage > 0) {
                     DataUsageRecord record = new DataUsageRecord(
                             packageName,
                             endTime,

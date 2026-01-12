@@ -49,19 +49,22 @@ public class NetworkHelper {
         long totalBytes = 0;
 
         try {
-            //querry
             NetworkStats stats = nsm.queryDetailsForUid(networkType, null, startTime, endTime, uid);
-            //bucket
             NetworkStats.Bucket bucket = new NetworkStats.Bucket();
 
-            //iteration
             while (stats.hasNextBucket()) {
                 stats.getNextBucket(bucket);
                 totalBytes += bucket.getRxBytes() + bucket.getTxBytes();
             }
-            stats.close(); //to avoid memory leak
+            stats.close();
+
+            if (totalBytes > 0) {
+                android.util.Log.d("Debug", "UID: " + uid + " Data: " + totalBytes);
+            }
+
             return totalBytes;
         } catch (Exception e) {
+            android.util.Log.e("NetworkHelper", "UID Query Error: " + e.getMessage());
             return 0;
         }
     }

@@ -41,6 +41,7 @@ dependencies {
     implementation("androidx.work:work-runtime:2.10.0")
     implementation(libs.work.runtime)
     implementation("androidx.room:room-runtime:2.6.1")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0") //data visualization
     annotationProcessor("androidx.room:room-compiler:2.6.1") //like lombok (getter setter)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
