@@ -3,7 +3,11 @@ package com.example.datausagetracker.utils;
 import android.app.usage.NetworkStats;
 import android.app.usage.NetworkStatsManager;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+
+import java.util.List;
 
 public class NetworkHelper {
     public static long getDataUsageByType(Context context, int networkType){
@@ -32,5 +36,33 @@ public class NetworkHelper {
 
     public static long getTotalMobileUsage(Context context) {
         return getDataUsageByType(context, ConnectivityManager.TYPE_MOBILE);
+    }
+
+    public static List<ApplicationInfo> getInstalledApps(Context context) {
+        PackageManager pm = context.getPackageManager();
+
+        return pm.getInstalledApplications(PackageManager.GET_META_DATA);
+    }
+
+    public static long getUsageForUid(Context context, int networkType, int uid, long startTime, long endTime) {
+        NetworkStatsManager nsm = (NetworkStatsManager) context.getSystemService(Context.NETWORK_STATS_SERVICE);
+        long totalBytes = 0;
+
+        try {
+            //querry
+            NetworkStats stats = nsm.queryDetailsForUid(networkType, null, startTime, endTime, uid);
+            //bucket
+            NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+
+            //iteration
+            while (stats.hasNextBucket()) {
+                stats.getNextBucket(bucket);
+                totalBytes += bucket.getRxBytes() + bucket.getTxBytes();
+            }
+            stats.close(); //to avoid memory leak
+            return totalBytes;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

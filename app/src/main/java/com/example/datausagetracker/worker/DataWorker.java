@@ -1,11 +1,18 @@
 package com.example.datausagetracker.worker;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.net.ConnectivityManager;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+
+import com.example.datausagetracker.data.local.db.AppDatabase;
+import com.example.datausagetracker.entity.DataUsageRecord;
 import com.example.datausagetracker.utils.NetworkHelper;
+
+import java.util.List;
 
 public class DataWorker extends Worker {
 
@@ -17,30 +24,56 @@ public class DataWorker extends Worker {
     @Override
     public Result doWork() {
         Context context = getApplicationContext();
-        boolean isAnyMeasurementSuccessful = false;
+        AppDatabase db = AppDatabase.getDatabase(context);
 
-        // 1. WiFi calculation
-        long wifiUsage = NetworkHelper.getTotalWifiUsage(context);
-        if (wifiUsage != -1) {
-            Log.d("Tracker", "WiFi data: " + wifiUsage);
-            isAnyMeasurementSuccessful = true;
-            // TODO: wifiRepository.insert(wifiUsage);
-        }
+        long endTime = System.currentTimeMillis();
+        long startTime = endTime - (15*60*1000);
 
-        // 2. Mobile calculation
-        long mobileUsage = NetworkHelper.getTotalMobileUsage(context);
-        if (mobileUsage != -1) {
-            Log.d("Tracker", "Mobile data: " + mobileUsage);
-            isAnyMeasurementSuccessful = true;
-            // TODO: mobileRepository.insert(mobileUsage);
-        }
+        try{
+            //List all apps
+            List<ApplicationInfo> installedApps = NetworkHelper.getInstalledApps(context);
 
-        //
-        if (isAnyMeasurementSuccessful) {
+            for (ApplicationInfo app : installedApps) {
+                int uid = app.uid;
+                String packageName = app.packageName;
+
+                // 1. WiFi calculation
+                long wifiUsage = NetworkHelper.getUsageForUid(
+                context,
+                        ConnectivityManager.TYPE_WIFI,
+                uid,
+                startTime,
+                endTime
+                );
+
+                //2. Mobile calculation
+                long mobileUsage = NetworkHelper.getUsageForUid(
+                        context,
+                        ConnectivityManager.TYPE_MOBILE,
+                        uid,
+                        startTime,
+                        endTime
+                );
+
+                //3. Only used apps will be kept in db
+                if (wifiUsage > 0 || mobileUsage < 0) {
+                    DataUsageRecord record = new DataUsageRecord(
+                            packageName,
+                            endTime,
+                            wifiUsage,
+                            mobileUsage
+                    );
+                    db.dataUsageDao().insert(record);
+                    Log.d("DataWorker", "Saved usage for: " + packageName + " (WiFi: " + wifiUsage + ")");
+
+                }
+
+            }
             return Result.success();
+        }catch (Exception e){
+            Log.e("DataWorker", "Error in background task: " + e.getMessage());
+            return Result.failure();
         }
 
-        // Try again if there is no data
-        return Result.retry();
     }
 }

@@ -9,7 +9,8 @@ import androidx.room.RoomDatabase;
 import com.example.datausagetracker.data.local.dao.DataUsageDao;
 import com.example.datausagetracker.entity.DataUsageRecord;
 
-@Database(entities = {DataUsageRecord.class}, version = 1) //all tables and version on the project
+@Database(entities = {DataUsageRecord.class}, version = 2) //all tables and version on the project
+//version changed because of new field in DataUsageRecord
 public abstract class AppDatabase extends RoomDatabase {
 
     public abstract DataUsageDao dataUsageDao(); //like Spring Autowired
