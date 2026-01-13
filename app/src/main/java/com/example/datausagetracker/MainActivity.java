@@ -1,7 +1,6 @@
 package com.example.datausagetracker;
 
-import android.app.AppOpsManager;
-import android.content.Context;
+
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -20,10 +19,11 @@ import androidx.work.WorkManager;
 import com.example.datausagetracker.entity.AppUsageSummary;
 import com.example.datausagetracker.utils.NetworkHelper;
 import com.example.datausagetracker.worker.DataWorker;
-import com.github.mikephil.charting.charts.PieChart;
-import com.github.mikephil.charting.data.PieData;
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.data.PieDataSet;
-import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         if (!isAccessGranted()) {
             android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
-            tvWifi.setText("Permission needed...");
+            tvWifi.setText("Permission is required...");
         } else {
             // 3. Calculate data usage
             long wifiBytes = NetworkHelper.getTotalWifiUsage(this);
@@ -61,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
             double mobileMB = mobileBytes / (1024.0 * 1024.0);
 
             tvWifi.setText(String.format("WiFi: %.2f MB", wifiMB));
-            tvMobile.setText(String.format("Mobil: %.2f MB", mobileMB));
+            tvMobile.setText(String.format("Mobile: %.2f MB", mobileMB));
 
             // Background operations
             startBackgroundWork();
@@ -111,7 +111,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 1. Permission control for usage access
         if (!isAccessGranted()) {
-            tvWifi.setText("İzin bekleniyor...");
+            tvWifi.setText("Permission is required...");
             // settings
             Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
             startActivity(intent);
@@ -120,42 +120,85 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void setupPieChart(List<AppUsageSummary> usageList) {
-        PieChart pieChart = findViewById(R.id.pieChart);
-        List<PieEntry> entries = new ArrayList<>();
+    private void setupBarChart(List<AppUsageSummary> usageList) {
+        com.github.mikephil.charting.charts.HorizontalBarChart barChart = findViewById(R.id.barChart);
+        int mainColor = Color.parseColor("#18181d");
+        android.graphics.Typeface boldTypeface = android.graphics.Typeface.DEFAULT_BOLD;
 
-        // 1. Compromise data for the graph
-        for (AppUsageSummary summary : usageList) {
+        //if no data, no chart
+        barChart.setNoDataText("No chart data available");
+        barChart.setNoDataTextColor(mainColor);
 
-            long totalBytes = summary.totalWifi + summary.totalMobile;
-            float totalMB = totalBytes / (1024f * 1024f);
-            if (totalMB > 0.1f) { // rounding
-                String friendlyName = getAppName(summary.packageName);
-                entries.add(new PieEntry(totalMB, friendlyName));
+        List<BarEntry> entries = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+
+        // 1. Apps that consumes the highest data are on top
+        int index = 0;
+        for (int i = usageList.size() - 1; i >= 0; i--) {
+            AppUsageSummary summary = usageList.get(i);
+            float totalMB = (summary.totalWifi + summary.totalMobile) / (1024f * 1024f);
+
+            if (totalMB > 0.1f) {
+                entries.add(new BarEntry(index, totalMB));
+
+                String name = getAppName(summary.packageName);
+
+                // shorten names
+                if (name.length() > 15) {
+                    name = name.substring(0, 11) + "...";
+                }
+
+                labels.add(name);
+
+                index++;
             }
         }
 
         if (entries.isEmpty()) {
-            pieChart.setNoDataText("No Sufficient Data.");
-            pieChart.invalidate();
+            barChart.setNoDataText("No Sufficient Data.");
+            barChart.invalidate();
             return;
         }
 
         // 2. Color and stile
-        PieDataSet dataSet = new PieDataSet(entries, "App Usage");
+        barChart.setExtraLeftOffset(50f);
+
+        BarDataSet dataSet = new BarDataSet(entries, "Data Usage (MB)");
         dataSet.setColors(ColorTemplate.MATERIAL_COLORS); // Color palette
         dataSet.setValueTextSize(12f);
-        dataSet.setValueTextColor(Color.BLACK);
+        dataSet.setValueTextColor(mainColor);
+        dataSet.setValueTypeface(android.graphics.Typeface.DEFAULT_BOLD);
 
-        PieData data = new PieData(dataSet);
-        pieChart.setData(data);
+        BarData data = new BarData(dataSet);
+        barChart.setData(data);
+
+        //X axis
+        com.github.mikephil.charting.components.XAxis xAxis = barChart.getXAxis();
+        xAxis.setValueFormatter(new com.github.mikephil.charting.formatter.IndexAxisValueFormatter(labels));
+        xAxis.setPosition(com.github.mikephil.charting.components.XAxis.XAxisPosition.BOTTOM);
+        xAxis.setDrawGridLines(false);
+        xAxis.setGranularity(1f);
+        xAxis.setXOffset(15f);
+        xAxis.setTextColor(mainColor);
+        xAxis.setTypeface(boldTypeface);
+        xAxis.setLabelCount(labels.size());
 
 
-        pieChart.getDescription().setEnabled(false);
-        pieChart.setCenterText("Data range ");
-        pieChart.setHoleRadius(40f); // middle gap
-        pieChart.animateY(1400); // animation
-        pieChart.invalidate(); // renew
+        //legend settings
+        barChart.getLegend().setEnabled(false);
+
+        barChart.getAxisLeft().setEnabled(false); // top value line closed
+        barChart.getAxisRight().setEnabled(false);
+        barChart.getLegend().setEnabled(false);
+        barChart.getDescription().setEnabled(false);
+        barChart.setFitBars(true);
+        barChart.animateY(1000);
+        barChart.invalidate();
+
+
+        barChart.getDescription().setEnabled(false);
+        barChart.animateY(1400); // animation
+        barChart.invalidate(); // renew
     }
 
     private void loadDataAndRefreshUI() {
@@ -173,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
             List<AppUsageSummary> topApps = db.dataUsageDao().getTopUsageApps();
 
             runOnUiThread(() -> {
-                setupPieChart(topApps);
+                setupBarChart(topApps);
             });
         }).start();
 
@@ -187,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
             android.content.pm.ApplicationInfo ai = pm.getApplicationInfo(packageName, 0);
             return pm.getApplicationLabel(ai).toString();
         } catch (Exception e) {
-            return packageName; // Bulamazsa eski halini bırakır
+            return packageName;
         }
 }
 }
