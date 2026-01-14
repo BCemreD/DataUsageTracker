@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+
+# Android (Eğer dışarıda kalan varsa)
+.idea/
+.gradle/
+build/
